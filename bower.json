@@ -1,0 +1,39 @@
+{
+  "name": "paper-fab-menu",
+  "version": "0.1.0",
+  "authors": [
+    "Bulan <Bulan@users.noreply.github.com>",
+    "wahlbergfredrik <wahlbergfredrik@users.noreply.github.com>"
+  ],
+  "description": "An element providing a solution to no problem in particular.",
+  "keywords": [
+    "web-component",
+    "web-components",
+    "polymer",
+    "paper-fab-menu",
+    "FAB",
+    "menu",
+    "FAB speed dial"
+  ],
+  "main": "paper-fab-menu.html",
+  "license": "http://polymer.github.io/LICENSE.txt",
+  "homepage": "https://github.com/Bulan/paper-fab-menu/",
+  "ignore": [
+    "/.*",
+    "/test/",
+    "/demo/"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#^1.0.0",
+    "neon-animation": "PolymerElements/neon-animation#^1.2.1",
+    "paper-tooltip": "PolymerElements/paper-tooltip#^1.1.2",
+    "iron-media-query": "PolymerElements/iron-media-query#^1.0.8",
+    "iron-overlay-behavior": "PolymerElements/iron-overlay-behavior#^1.6.3",
+    "iron-flex-layout": "PolymerElements/iron-flex-layout#^1.3.1"
+  },
+  "devDependencies": {
+    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",
+    "web-component-tester": "*",
+    "paper-fab": "PolymerElements/paper-fab#^1.2.0"
+  }
+}
