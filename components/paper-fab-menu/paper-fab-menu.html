@@ -1,0 +1,398 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../neon-animation/neon-animation-runner-behavior.html" />
+<link rel="import" href="../neon-animation/neon-animations.html" />
+<link rel="import" href="../paper-tooltip/paper-tooltip.html" />
+<link rel="import" href="../iron-media-query/iron-media-query.html" />
+<link rel="import" href="../iron-overlay-behavior/iron-overlay-behavior.html" />
+<link rel="import" href="../iron-flex-layout/classes/iron-flex-layout.html" />
+<!-- <link rel="import" href="../iron-flex-layout/iron-flex-layout-classes.html" /> -->
+
+
+<!--
+This element provides a FAB Speed Dial menu.
+
+Example:
+
+    <paper-fab-menu>
+      <paper-fab></paper-fab>
+      <paper-fab></paper-fab>
+    </paper-fab-menu>
+
+@demo
+-->
+<dom-module id="paper-fab-menu">
+  <template>
+    <!--
+    Uncomment to use newer iron-flex-layout-classes instead of classes/iron-flex-layout.html, see imports
+    <style is="custom-style" include="iron-flex iron-flex-reverse iron-flex-alignment">
+    -->
+    <style>
+      :host  {
+        position: fixed;
+        bottom: 1.5em;
+        right: 1.5em;
+        transition: 100ms ease-in-out;
+      }
+      .hidden {
+        visibility: hidden;
+      }
+      div.tooltip-hidden {
+        display: none;
+      }
+      div.main-fab-tooltip,div.option-fab-tooltip {
+        background-color: #616161;
+        opacity: 0.9;
+        color: white;
+        font-size: 10px;
+        line-height: 1;
+        padding: 8px;
+        border-radius: 2px;
+        position: absolute;
+        white-space: nowrap;
+      }
+      div.main-fab-tooltip {
+        right: 64px;
+      }
+      div.option-fab-tooltip {
+        right: 56px;
+      }
+      #fab_options_container ::content > paper-fab {
+        margin-bottom: 0.5em;
+      }
+      #fab_container ::content > paper-fab > iron-icon {
+        transition: 150ms ease-in-out;
+      }
+    </style>
+
+    <iron-media-query query="(max-device-width: 1024px) and (orientation: landscape), (orientation: portrait)" query-matches="{{isDevice}}"></iron-media-query>
+
+    <div id="fab_container" class="layout vertical-reverse center"
+          on-mouseenter="_showOptionFabs"
+          on-mouseleave="_hideOptionFabs">
+      <content  id="main_fab_content"
+                select="paper-fab-menu > paper-fab:first-child, div#fab_container > paper-fab:first-child">
+      </content>
+      <div id="fab_options_container"
+            class="layout vertical-reverse center hidden">
+        <content id="option_fabs_content" select="paper-fab,div.tooltip"></content>
+      </div>
+    </div>
+
+  </template>
+
+   <script>
+    Polymer ( {
+      is         : "paper-fab-menu",
+
+      behaviors: [
+        Polymer.NeonAnimationRunnerBehavior
+      ],
+
+      properties : {
+        /**
+         * The name of the icon to show when menu is not active.
+         * Defaults to "icons:add"
+         */
+        mainIconName: {
+          type: String,
+          value: 'add'
+        },
+        /**
+         * The name of the icon when menu is active.
+         * Not necessary to set since it's taken from the first FAB on init.
+         */
+        mainIconNameActive: {
+          type: String
+        },
+
+        /**
+         * The config for the animations.
+         * Unknown behavior if this is altered for now..
+         */
+        animationConfig: {
+          type: Object,
+          value: function(){return {'entry':[],'exit':[]};}
+        },
+
+        /**
+         * Indicates if the menu is currently open.
+         */
+        opened:  {
+          type: Boolean,
+          value:  false,
+          readonly: true,
+          observer: '_openedChanged'
+        },
+
+        /**
+         * Set to true if no menu behavior should be applied.
+         * Commonly used for debugging.
+         */
+        singleOption: {
+          type: Boolean,
+          value: false
+        },
+
+        isDevice: {
+          type: Boolean,
+          value: false
+        }
+      },
+
+      listeners: {
+        'neon-animation-finish': '_onNeonAnimationFinish'
+      },
+
+      ready      : function( ) {
+        var clickEvent = ('ontouchstart' in window) ? 'touchstart' : 'mousedown';
+        document.addEventListener(clickEvent, this._onCaptureClick.bind(this), true);
+        var initFabs = this._initFabs;
+        var mainFab = this._getMainFab();
+        this.mainIconNameActive = mainFab.getAttribute("icon");
+        if(!this.singleOption) {
+          mainFab.setAttribute("icon", this.mainIconName);
+        }
+
+        Polymer.dom(this.$.main_fab_content).observeNodes(function(info) {
+          this._initFabs(info.addedNodes,true);
+        }.bind(this));
+        Polymer.dom(this.$.option_fabs_content).observeNodes(function(info) {
+          this._initFabs(info.addedNodes,false).then(function (tooltips) {
+            this._configureAnimations(info.addedNodes,tooltips);
+          }.bind(this));
+        }.bind(this));
+      },
+
+      _openedChanged: function(opened) {
+        this.toggleClass('hidden', !opened, this.$.fab_options_container);
+
+        if(this.isDevice && !this.singleOption) {
+          var action = this.opened ? this._onFabHover.bind(this) : this._onFabUnhover.bind(this);
+
+          var e;
+
+          var mainFab = this._getMainFab();
+          e = {
+            target: mainFab
+          };
+          action(e);
+
+          var optionFabs = this._getOptionFabs();
+          for (var i = 0; i < optionFabs.length; i++) {
+            if (optionFabs[i].style.display.toLowerCase()!=='none') {
+              e = {target:optionFabs[i]};
+              action(e);
+            }
+          }
+        }
+      },
+
+      _initFabs: function (fabArray, isMain) {
+        return new Promise(function(resolve, reject) {
+          var tooltips = {};
+          for (var i = 0; i < fabArray.length; i++) {
+            var fab = fabArray[i];
+            if(!this.isDevice){
+              this.listen(fab,"mouseenter", '_onFabHover');
+              this.listen(fab,'mouseleave','_onFabUnhover');
+              this.listen(fab,'tap', '_onFabTap');
+            } else {
+              this.listen(fab,'tap', '_onTap');
+            }
+            //Make sure the FAB always have an id
+            if (fab.id === "") {
+              fab.id = "paper-fab-menu_fab" + (isMain ? "main" : "") + i;
+            }
+
+            if(fab.title && fab.title!==""){
+              var tooltip = document.createElement('div');
+              this.toggleClass('tooltip',true,tooltip);
+              tooltip.innerHTML = fab.title;
+              fab.title = "";
+              tooltip.id = "pfm_tooltip_" + fab.id;
+
+              // Distance to bottom of div for tooltip
+              // = (main fab height - tooltip height)/2 = (56px - 26px)/2 = 15px              [if main fab]
+              // = main fab height + fab gap + (fab height - tooltip height)/2 + (fab height + fab gap)*(fab list number)
+              //      = 56px + 8px + (40px - 26px)/2 + (40px + 8px)*i = (69 + 48*i)px         [if option fab #i]
+              tooltip.style.bottom = (isMain ? "15" : (69+i*48)) + "px";
+
+              Polymer.dom(fab.parentNode).appendChild(tooltip);
+              this.toggleClass('tooltip-hidden', true, tooltip);
+              this.toggleClass('main-fab-tooltip', isMain, tooltip);
+              this.toggleClass('option-fab-tooltip', !isMain, tooltip);
+              tooltips[fab.id] = tooltip;
+            }
+
+            if(!isMain) {
+              fab.setAttribute("mini",true);
+            }
+          }
+          resolve(tooltips);
+        }.bind(this));
+      },
+
+      _configureAnimations : function (optionFabs, tooltips) {
+        var entryAnimation = [];
+        var exitAnimation = [];
+        for (var i = 0; i < optionFabs.length; i++) {
+          this.animationConfig.entry.push({
+            name: 'scale-up-animation',
+            node: optionFabs[i],
+            timing: {duration: 100, delay: 50*i}
+          });
+          this.animationConfig.exit.push({
+            name: 'scale-down-animation',
+            node: optionFabs[i],
+            timing: {duration: 100, delay: 50*(optionFabs.length-i)}
+          });
+          if(tooltips[optionFabs[i].id]) {
+            this.animationConfig.entry.push({
+              name: 'scale-up-animation',
+              node: tooltips[optionFabs[i].id],
+              timing: {duration: 100, delay: 50*i}
+            });
+            this.animationConfig.exit.push({
+              name: 'scale-down-animation',
+              node: tooltips[optionFabs[i].id],
+              timing: {duration: 100, delay: 50*(optionFabs.length-i)}
+            });
+          }
+        }
+      },
+
+      _getMainFab : function() {
+        var fab = Polymer.dom(this.$.main_fab_content).getDistributedNodes()[0];
+        return fab;
+      },
+
+      _getMainFabIcon : function() {
+        return this._getMainFab().getElementsByTagName('iron-icon')[0];
+      },
+
+      _getOptionFabs : function() {
+        return Polymer.dom(this.$.option_fabs_content).getDistributedNodes();
+      },
+
+      _onCaptureClick:  function (e) {
+        if(this.isDevice && this.opened) {
+          var p;
+          var t = e.target;
+          while(!p) {
+            if (t.tagName.toLowerCase() === 'paper-fab' || t.tagName.toLowerCase() === 'body') {
+              p = t.tagName.toLowerCase() === 'body' ? 'body' : 'paper-fab';
+            } else {
+              t = t.parentNode;
+            }
+          }
+          if(p === 'body') {
+            this._hideOptionFabs(e);
+          }
+        }
+      },
+
+      _showOptionFabs : function (e) {
+        if(this.isDevice && e && e.type === "mouseenter") {
+          return;
+        }
+        this.cancelAnimation();
+
+        this.opened = true;
+        if(!this.singleOption) {
+          var iconElement = this._getMainFabIcon();
+          iconElement.style.transform = "rotate(360deg) scale(0.5,0.5)";
+          setTimeout(
+            function () {
+              iconElement.icon = this.mainIconNameActive;
+              iconElement.style.transform = "rotate(360deg) scale(1,1)";
+            }.bind(this), 75
+          );
+        }
+        this.playAnimation('entry');
+      },
+
+      _hideOptionFabs : function (e) {
+        if(this.isDevice && e && e.type === "mouseleave") {
+          return;
+        }
+        this.cancelAnimation();
+
+        if(!this.singleOption) {
+          var iconElement = this._getMainFabIcon();
+          iconElement.style.transform = "rotate(0deg) scale(0.5,0.5)";
+          setTimeout(
+            function () {
+              iconElement.icon = this.mainIconName;
+              iconElement.style.transform = "rotate(0deg) scale(1,1)";
+            }.bind(this), 75
+          );
+        }
+
+        this.playAnimation('exit', function () {
+          this.opened = false;
+        }.bind(this));
+      },
+
+      _onNeonAnimationFinish: function(event, fun) {
+        if (typeof fun === "function") {
+          fun();
+        }
+      },
+
+      _onFabHover: function(e) {
+        this._setFabHoverStatus(e.target, true);
+      },
+
+      _onFabUnhover: function(e) {
+        this._setFabHoverStatus(e.target, false);
+      },
+
+      _setFabHoverStatus: function(target, hovering) {
+        target.setAttribute("elevation", hovering ? "3": "1");
+        this.toggleClass('tooltip-hidden', !hovering, Polymer.dom(target.parentNode).querySelector('#pfm_tooltip_' + target.id));
+      },
+
+      _onTap:  function (e) {
+        var t = e.target;
+        var fab, pfm;
+        while (!(pfm && fab)) {
+          fab = t.tagName.toLowerCase() === 'paper-fab' ? t : fab;
+          if(t.parentNode.tagName.toLowerCase() === 'paper-fab-menu') {
+            pfm = t.parentNode;
+          } else {
+            t = t.parentNode;
+          }
+        }
+        if(pfm.isDevice && !pfm.singleOption) {
+          if(pfm.opened) {
+            if(e.type === 'tap') {
+              this._onFabTap(e);
+              pfm._hideOptionFabs(e);
+            }
+          } else {
+            pfm._showOptionFabs(e);
+          }
+        } else {
+          this._onFabTap(e);
+        }
+      },
+
+      // Element Behavior
+
+      /**
+       * The `fab-tap` event is fired whenever one FAB is tapped.
+       *
+       * @event fab-tap
+       * @detail {{event: tap-event}}
+       */
+      _onFabTap: function (e) {
+        e.target.fire('fab-tap', e);
+      },
+
+      _translateX: function(x) {
+        this.transform("translateX(-" + x + "px)");
+      }
+
+    } );
+   </script>
+</dom-module>
