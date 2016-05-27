@@ -3,6 +3,12 @@
 Provides an easy way to get a [FAB Speed Dial](https://www.google.com/design/spec/components/buttons-floating-action-button.html#buttons-floating-action-button-transitions "Material Design Guidelines: Floating Action Button") menu from multiple `paper-fab` elements.
 
 
+## Docs & Demo 
+http://bulan.github.io/paper-fab-menu/components/paper-fab-menu/
+
+--------------------
+Below content from original Polymer element template...
+
 ## Dependencies
 
 Element dependencies are managed via [Bower](http://bower.io/). You can
